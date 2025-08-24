@@ -6,56 +6,67 @@
 <title>IPFS掲示板</title>
 <style>
 body { font-family: sans-serif; margin: 1em; }
+#formContainer { max-width: 400px; margin-bottom: 1em; }
+input, textarea { width: 100%; display: block; margin-bottom: 0.5em; padding: 0.5em; font-size: 16px; }
+a.button-link { display: inline-block; padding: 0.5em 1em; font-size: 16px; background-color: #0a84ff; color: white; text-decoration: none; border-radius: 5px; text-align: center; touch-action: manipulation; }
+a.button-link:active { background-color: #0066cc; }
 #posts { max-width: 400px; max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; }
 .post { border-bottom: 1px solid #ccc; padding: 4px; }
 </style>
 </head>
 <body>
 <p>IPFS掲示板</p>
-</br>
-<p>メリット</p>
-</br>
-<p>・サーバーが要らない</p>
-</br>
-<p>デメリット</p>
-</br>
-<p>アクセス数が0になるとデータが全て消える<p>
-</br>
-<p>リアルタイム更新(Ajax)が使えない</p>
-</br
-<p>素直にスプレッドシートのAPIを使った方が良い</p>
-<input id="name" placeholder="名前"><br>
-<textarea id="message" placeholder="投稿内容"></textarea><br>
-<button id="sendBtn">投稿</button>
+<div id="formContainer">
+  <input type="text" id="name" placeholder="名前">
+  <textarea id="message" placeholder="投稿内容"></textarea>
+  <a href="#" id="sendBtn" class="button-link" role="button">投稿</a>
+</div>
 <div id="posts"></div>
 
 <script type="module">
 import { create } from "https://cdn.jsdelivr.net/npm/ipfs-core/dist/index.min.js";
-const STORAGE_KEY = "bbs-posts";
-let posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-function renderPosts() {
-  const div = document.getElementById("posts");
-  div.innerHTML = "";
-  posts.forEach(p => {
-    const d = document.createElement("div");
-    d.className = "post";
-    d.textContent = `${p.name}: ${p.text}`;
-    div.appendChild(d);
-  });
+
+const STORAGE_KEY = "bbs-local-posts";
+let posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); 
+
+const postsDiv = document.getElementById("posts");
+const nameInput = document.getElementById("name");
+const messageInput = document.getElementById("message");
+const sendBtn = document.getElementById("sendBtn");
+
+// 投稿を画面に表示する関数
+function addPostToDOM(name, text, cid, isLocal=false) {
+  const div = document.createElement("div");
+  div.className = "post";
+  div.textContent = `${name}: ${text}` + (isLocal ? " [自分の投稿]" : "");
+  postsDiv.appendChild(div);
+  postsDiv.scrollTop = postsDiv.scrollHeight;
 }
-document.getElementById("sendBtn").onclick = async () => {
-  const name = document.getElementById("name").value || "名無し";
-  const text = document.getElementById("message").value.trim();
-  if (!text) return;
-  posts.push({ name, text });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
-  const ipfs = await create();
-  const { cid } = await ipfs.add(JSON.stringify(posts));
-  console.log("アップロード成功 CID:", cid.toString());
-  renderPosts();
-  document.getElementById("message").value = "";
-};
+
+function renderPosts() {
+  postsDiv.innerHTML = "";
+  for (const p of posts) {
+    addPostToDOM(p.name, p.text, p.cid, true);
+  }
+}
 renderPosts();
+
+sendBtn.addEventListener("click", async (e) => {
+  e.preventDefault();
+  const name = nameInput.value.trim() || "名無し";
+  const text = messageInput.value.trim();
+  if (!text) return alert("投稿内容を入力してください");
+
+  const ipfs = await create({ repo: "ipfs-bbs-"+Math.random() });
+  const { cid } = await ipfs.add(JSON.stringify({ name, text, timestamp: Date.now() }));
+
+  const post = { name, text, cid: cid.toString() };
+  posts.push(post);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+
+  addPostToDOM(name, text, cid.toString(), true);
+  messageInput.value = "";
+});
 </script>
 </body>
 </html>
