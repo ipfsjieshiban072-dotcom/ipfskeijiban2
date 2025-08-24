@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPFS掲示板</title>
+<style>
+body { font-family: sans-serif; margin: 1em; }
+#posts { max-width: 400px; max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 5px; }
+.post { border-bottom: 1px solid #ccc; padding: 4px; }
+</style>
+</head>
+<body>
+<p>IPFS掲示板</p>
+</br>
+<p>メリット</p>
+</br>
+<p>・サーバーが要らない</p>
+</br>
+<p>デメリット</p>
+</br>
+<p>アクセス数が0になるとデータが全て消える<p>
+</br>
+<p>リアルタイム更新(Ajax)が使えない</p>
+</br
+<p>素直にスプレッドシートのAPIを使った方が良い</p>
+<input id="name" placeholder="名前"><br>
+<textarea id="message" placeholder="投稿内容"></textarea><br>
+<button id="sendBtn">投稿</button>
+<div id="posts"></div>
+
+<script type="module">
+import { create } from "https://cdn.jsdelivr.net/npm/ipfs-core/dist/index.min.js";
+const STORAGE_KEY = "bbs-posts";
+let posts = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+function renderPosts() {
+  const div = document.getElementById("posts");
+  div.innerHTML = "";
+  posts.forEach(p => {
+    const d = document.createElement("div");
+    d.className = "post";
+    d.textContent = `${p.name}: ${p.text}`;
+    div.appendChild(d);
+  });
+}
+document.getElementById("sendBtn").onclick = async () => {
+  const name = document.getElementById("name").value || "名無し";
+  const text = document.getElementById("message").value.trim();
+  if (!text) return;
+  posts.push({ name, text });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  const ipfs = await create();
+  const { cid } = await ipfs.add(JSON.stringify(posts));
+  console.log("アップロード成功 CID:", cid.toString());
+  renderPosts();
+  document.getElementById("message").value = "";
+};
+renderPosts();
+</script>
+</body>
+</html>
